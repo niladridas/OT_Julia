@@ -9,13 +9,13 @@ This library provides optimization problem solvers related to **Optimal Transpor
 2. **Earth Movers Distance**
 3. **Linear OT**
 ****
-#### Installation
-#### Examples
-#### Short Example
-#### Acknowledgements
+### Installation
+### Examples
+### Short Example
+### Acknowledgements
 The contributors to this open-source project are:
 * [**Niladri Das**](www.niladridas.com)
 
-#### Contributions and code of conduct
-#### Support
-#### References:
+### Contributions and code of conduct
+### Support
+### References:
