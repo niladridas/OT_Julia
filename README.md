@@ -19,4 +19,4 @@ The contributors to this open-source project are:
 ### Contributions and code of conduct
 ### Support
 ### References:
-[1] Cuturi, M. (2013), [Sinkhorn Distances: Lightspeed Computation of Optimal Transport.](http://marcocuturi.net/Papers/cuturi13sinkhorn.pdf)In Advances in Neural Information Processing Systems
+[1] Cuturi, M. (2013), [Sinkhorn Distances: Lightspeed Computation of Optimal Transport.](http://marcocuturi.net/Papers/cuturi13sinkhorn.pdf) In Advances in Neural Information Processing Systems
