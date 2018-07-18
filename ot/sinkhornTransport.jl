@@ -1,4 +1,3 @@
-using Match
 function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference",p_norm=Inf,tolerance=.5e-2,maxIter= 5000,VERBOSE=0)
     # Compute the N Sinkhorn divergence for all the pairs
     # D = [d(a_1,b_1),...,d(a_N,b_N)]
@@ -53,17 +52,12 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
     else
         error("The first parameter a is either a column vector in the probability simplex, or N column vectors in the probability simplex where N is size(b,2)")
     end
-
     ## Checking dimensionality:
-    ## TODO: This doesnot sound right
     if size(b)[2] > size(b)[1]
         BIGN = true
     else
         BIGN = false
     end
-
-
-
     ## Small changes in the 1-vs-N case to go a bit faster.
     if ONE_VS_N # if computing 1-vs-N make sure all components of a are >0. Otherwise we can get rid of some   lines of K to go faster.
         I = find(a) # Changed from Matlab
@@ -76,21 +70,14 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
         end
         ainvK=broadcast(/,K,a) # precomputation of this matrix saves a d1 x N Schur product at each iteration.
     end
-
-
-
     ## Fixed point counter
     compt=0;
-
-
-    ## Initialization of Left scaling Factors, N column vectors.
+    ## Initialization of
     u = ones(size(a)[1],size(b)[2])./size(a)[1]
     v = zeros(size(b)[1],size(b)[2])
-
     if stoppingCriterion == "distanceRelativeDecrease"
         Dold = ones(1,size(b)[2]); # initialization of vector of distances.
     end
-
     while compt <= maxIter
         if ONE_VS_N # 1-vs-N mode
             if BIGN
@@ -121,7 +108,6 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
             else
                 u=a./(K*v)
             end
-
             # check stopping criterion
             if stoppingCriterion == "distanceRelativeDecrease"
                 D=sum(u.*(U*v))
@@ -143,41 +129,29 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
             if VERBOSE>0
                 display("Iteration : $compt, Criterion: $Criterion")
             end
-            # TO-DO: replace any() by julia function
             # if any(isnan(Criterion)), # stop all computation if a computation of one of the pairs goes wrong.
             #     error("NaN values have appeared during the fixed point iteration. This problem appears because of insufficient machine precision when processing computations with a regularization value of lambda that is too high. Try again with a reduced regularization parameter lambda or with a thresholded metric matrix M.");
             # end
         end
     end
-
     if stoppingCriterion == "marginalDifference" # if we have been watching marginal differences, we need to compute the vector of distances.
         D=sum(u.*(U*v))
     end
-    # if nargout>1 # user wants lower bounds
-        alpha = log.(u)
-        beta = log.(v)
-        for t in eachindex(beta)
-            beta[t]==-Inf ? beta[t]=0 : beta[t]=beta[t]
+    alpha = log.(u)
+    beta = log.(v)
+    for t in eachindex(beta)
+        beta[t]==-Inf ? beta[t]=0 : beta[t]=beta[t]
+    end
+    if ONE_VS_N
+        L= (a'* alpha + sum(b.*beta))/lambda
+    else
+        for t in eachindex(alpha)
+            alpha[t]==-Inf ? alpha[t]=0 : alpha[t]=alpha[t]
         end
-        # [ t==-Inf ? t=0 :  for t in beta]
-        # beta(beta==-inf)=0 # zero values of v (corresponding to zero values in b) generate inf numbers.
-        if ONE_VS_N
-            L= (a'* alpha + sum(b.*beta))/lambda
-        else
-            for t in eachindex(alpha)
-                alpha[t]==-Inf ? alpha[t]=0 : alpha[t]=alpha[t]
-            end
-            # alpha(alpha==-inf)=0 # zero values of u (corresponding to zero values in a) generate inf numbers. in ONE-VS-ONE mode this never happens.
-            L= (sum(a.*alpha) + sum(b.*beta))/lambda
-        end
-    # end
-    #
-    # if nargout>2 && ONE_VS_N && someZeroValues # user wants scalings. We might have to arficially add zeros again in bins of a that were suppressed.
-        uu=u
-        u=zeros(length(I),size(b)[2])
-        u(I,:)=uu
-    # end
-
-
+        L= (sum(a.*alpha) + sum(b.*beta))/lambda
+    end
+    uu=u
+    u=zeros(length(I),size(b)[2])
+    u(I,:)=uu
     return D, L, u, v
 end
