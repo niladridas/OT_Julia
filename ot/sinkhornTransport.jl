@@ -45,15 +45,19 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
     # TO-DO:
     #
     ## Checking the type of computation: 1-vs-N points or many pairs
-    if size(a)[2] == 1
+    a_r, a_c = size(a)
+    b_r, b_c = size(b)
+
+
+    if a_c == 1
         ONE_VS_N = true # We are computing [D(a,b_1), ... , D(a,b_N)]
-    elseif size(a)[2] == size(b)[2]
+    elseif a_c == b_c
         ONE_VS_N = false # We are computing [D(a_1,b_1), ... , D(a_N,b_N)]
     else
         error("The first parameter a is either a column vector in the probability simplex, or N column vectors in the probability simplex where N is size(b,2)")
     end
     ## Checking dimensionality:
-    if size(b)[2] > size(b)[1]
+    if b_c > b_r
         BIGN = true
     else
         BIGN = false
@@ -62,34 +66,35 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
     if ONE_VS_N # if computing 1-vs-N make sure all components of a are >0. Otherwise we can get rid of some   lines of K to go faster.
         I = find(a) # Changed from Matlab
         someZeroValues = false
-        if length(I)<size(a)[1] # need to update some vectors and matrices if a does not have full support
+        if length(I)<a_r # need to update some vectors and matrices if a does not have full support
             someZeroValues=true
             K = K[I,:]
             U = U[I,:]
-            a = a[I,1]
+            a = a[I]
         end
-        ainvK=broadcast(/,K,a) # precomputation of this matrix saves a d1 x N Schur product at each iteration.
+        ainvK= broadcast(/,K,a) # precomputation of this matrix saves a d1 x N Schur product at each iteration.
     end
+    a_r = length(a)
     ## Fixed point counter
     compt=0;
     ## Initialization of
-    u = ones(size(a)[1],size(b)[2])./size(a)[1]
-    v = zeros(size(b)[1],size(b)[2])
-    if stoppingCriterion == "distanceRelativeDecrease"
-        Dold = ones(1,size(b)[2]); # initialization of vector of distances.
+    u =  (1/a_r).*ones(a_r,b_c)./a_r #broadcast(/,ones(a_r,b_c),a_r)#
+    v = zeros(b_r,b_c)
+    if cmp(stoppingCriterion, "distanceRelativeDecrease")==0
+        Dold = ones(1,b_c); # initialization of vector of distances.
     end
-    while compt <= maxIter
+    while compt < maxIter
         if ONE_VS_N # 1-vs-N mode
             if BIGN
-                u = 1./(ainvK*(b./(K'*u)))
+                u = 1./(ainvK*broadcast(/,b,(K'*u)))
             else
-                u=1./(ainvK*(b./(u'*K)'))
+                u=1./(ainvK*broadcast(/,b,(u'*K)'))
             end
         else
             if BIGN
-                u=a./(K*(b./(u'*K)'))
+                u=broadcast(/,a,(K*broadcast(/,b,(u'*K)')))
             else
-                u=a./(K*(b./(K'*u)))
+                u=broadcast(/,a,(K*broadcast(/,b,(K'*u))))
             end
         end
         compt=compt+1
@@ -99,26 +104,26 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
         if mod(compt,20)==1 || compt==maxIter
         # split computations to recover right and left scalings.
             if BIGN
-                v=b./(K'*u) # main iteration of Sinkhorn's algorithm
+                v=broadcast(/,b,(K'*u)) # main iteration of Sinkhorn's algorithm
             else
-                v=b./((u'*K)')
+                v=broadcast(/,b,(u'*K)')
             end
             if ONE_VS_N # 1-vs-N mode
                 u=1./(ainvK*v)
             else
-                u=a./(K*v)
+                u=broadcast(/,a,(K*v))
             end
             # check stopping criterion
-            if stoppingCriterion == "distanceRelativeDecrease"
-                D=sum(u.*(U*v))
-                Criterion=norm(D./Dold-1,p_norm)
+            if cmp(stoppingCriterion, "distanceRelativeDecrease")==0
+                D=sum(broadcast(*,u,(U*v)))
+                Criterion=norm(broadcast(/,D,Dold)-1,p_norm)
                 if Criterion<tolerance || isnan(Criterion)
                     break
                 end
                  Dold=D
 
-            elseif stoppingCriterion == "marginalDifference"
-                Criterion=norm(sum(abs.(v.*(K'*u)-b)),p_norm)
+            elseif cmp(stoppingCriterion,"marginalDifference")==0
+                Criterion=norm(sum(abs.(broadcast(*,v,(K'*u))-b)),p_norm)
                 if Criterion<tolerance || isnan(Criterion)
                     break
                 end
@@ -134,24 +139,20 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
             # end
         end
     end
-    if stoppingCriterion == "marginalDifference" # if we have been watching marginal differences, we need to compute the vector of distances.
+    if cmp(stoppingCriterion,"marginalDifference")==0 # if we have been watching marginal differences, we need to compute the vector of distances.
         D=sum(u.*(U*v))
     end
     alpha = log.(u)
     beta = log.(v)
-    for t in eachindex(beta)
-        beta[t]==-Inf ? beta[t]=0 : beta[t]=beta[t]
-    end
+    [beta[t]==-Inf ? beta[t]=0 : beta[t]=beta[t] for t in eachindex(beta)]
     if ONE_VS_N
         L= (a'* alpha + sum(b.*beta))/lambda
     else
-        for t in eachindex(alpha)
-            alpha[t]==-Inf ? alpha[t]=0 : alpha[t]=alpha[t]
-        end
-        L= (sum(a.*alpha) + sum(b.*beta))/lambda
+        [alpha[t]==-Inf ? alpha[t]=0 : alpha[t]=alpha[t] for t in eachindex(alpha)]
+        L= (sum(broadcast(*,a,alpha)) + sum(broadcast(*,b,beta)))/lambda
     end
     uu=u
-    u=zeros(length(I),size(b)[2])
+    u=zeros(length(I),b_c)
     u(I,:)=uu
     return D, L, u, v
 end

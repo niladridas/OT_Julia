@@ -6,4 +6,10 @@ U = readdlm("data/U.dat")
 Lam = readdlm("data/lambda.dat")
 ##
 include("../ot/sinkhornTransport.jl")
-D, L, u, v = @time sinkhornTransport(a,b,K,U,Lam,"distanceRelativeDecrease",Inf,.5e-2,50,0)
+
+D, L, u, v = @time sinkhornTransport(a,b,K,U,Lam,"marginalDifference",Inf,.5e-2,500,0)
+#
+# # Profile.clear()
+# # @profile sinkhornTransport(a,b,K,U,Lam,"marginalDifference",Inf,.5e-2,500,0)
+#
+# @code_warntype sinkhornTransport(a,b,K,U,Lam,"marginalDifference",Inf,.5e-2,500,0)
