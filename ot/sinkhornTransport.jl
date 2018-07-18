@@ -62,28 +62,37 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
         BIGN = false
     end
 
+
+
     ## Small changes in the 1-vs-N case to go a bit faster.
     if ONE_VS_N # if computing 1-vs-N make sure all components of a are >0. Otherwise we can get rid of some   lines of K to go faster.
         I = find(a) # Changed from Matlab
         someZeroValues = false
-        if length(I)<length(a) # need to update some vectors and matrices if a does not have full support
+        if length(I)<size(a)[1] # need to update some vectors and matrices if a does not have full support
             someZeroValues=true
             K = K[I,:]
             U = U[I,:]
-            a = a[I]
+            a = a[I,1]
         end
-        ainvK=broadcast(./,K,a) # precomputation of this matrix saves a d1 x N Schur product at each iteration.
+        ainvK=broadcast(/,K,a) # precomputation of this matrix saves a d1 x N Schur product at each iteration.
     end
+
+
+
     ## Fixed point counter
     compt=0;
+
+
     ## Initialization of Left scaling Factors, N column vectors.
-    u=ones(size(a)[1],size(b)[2])/size(a)[1]
+    u = ones(size(a)[1],size(b)[2])./size(a)[1]
+    v = zeros(size(b)[1],size(b)[2])
+
     if stoppingCriterion == "distanceRelativeDecrease"
-        Dold=ones(1,size(b)[2]); # initialization of vector of distances.
+        Dold = ones(1,size(b)[2]); # initialization of vector of distances.
     end
 
     while compt <= maxIter
-        if ONE_VS_N, # 1-vs-N mode
+        if ONE_VS_N # 1-vs-N mode
             if BIGN
                 u = 1./(ainvK*(b./(K'*u)))
             else
@@ -100,40 +109,39 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
         # check the stopping criterion every 20 fixed point iterations
         # or, if that's the case, before the final iteration to store the most
         # recent value for the matrix of right scaling factors v.
-        if mod(compt,20)==1 || compt==maxIter,
+        if mod(compt,20)==1 || compt==maxIter
         # split computations to recover right and left scalings.
             if BIGN
-                v=b./(K'*u); % main iteration of Sinkhorn's algorithm
+                v=b./(K'*u) # main iteration of Sinkhorn's algorithm
             else
-                v=b./((u'*K)');
+                v=b./((u'*K)')
             end
-
-            if ONE_VS_N, % 1-vs-N mode
-                u=1./(ainvK*v);
+            if ONE_VS_N # 1-vs-N mode
+                u=1./(ainvK*v)
             else
-                u=a./(K*v);
+                u=a./(K*v)
             end
 
             # check stopping criterion
-            @match stoppingCriterion begin
-                "distanceRelativeDecrease" =>
-                    D=sum(u.*(U*v))
-                    Criterion=norm(D./Dold-1,p_norm)
-                    if Criterion<tolerance || isnan(Criterion),
-                        break
-                    end
-                    Dold=D
+            if stoppingCriterion == "distanceRelativeDecrease"
+                D=sum(u.*(U*v))
+                Criterion=norm(D./Dold-1,p_norm)
+                if Criterion<tolerance || isnan(Criterion)
+                    break
+                end
+                 Dold=D
 
-                "marginalDifference" =>
-                    Criterion=norm(sum(abs(v.*(K'*u)-b)),p_norm)
-                    if Criterion<tolerance || isnan(Criterion) # norm of all || . ||_1 differences between the marginal of the current solution with the actual marginals.
-                        break
-                    end
-                - => error('Stopping Criterion not recognized');
-            end
-            compt=compt+1;
-            if VERBOSE>0,
-                display(['Iteration :',num2str(compt),' Criterion: ',num2str(Criterion)]);
+            elseif stoppingCriterion == "marginalDifference"
+                Criterion=norm(sum(abs.(v.*(K'*u)-b)),p_norm)
+                if Criterion<tolerance || isnan(Criterion)
+                    break
+                end
+            else
+                error("Stopping Criterion not recognized")
+            end# norm of all || . ||_1 differences between the marginal of the current solution with the actual marginals.
+            compt=compt+1
+            if VERBOSE>0
+                display("Iteration : $compt, Criterion: $Criterion")
             end
             # TO-DO: replace any() by julia function
             # if any(isnan(Criterion)), # stop all computation if a computation of one of the pairs goes wrong.
@@ -145,45 +153,31 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
     if stoppingCriterion == "marginalDifference" # if we have been watching marginal differences, we need to compute the vector of distances.
         D=sum(u.*(U*v))
     end
-
-    if nargout>1 # user wants lower bounds
-        alpha = log(u)
-        beta = log(v)
-        beta(beta==-inf)=0 # zero values of v (corresponding to zero values in b) generate inf numbers.
-        if ONE_VS_N
-            L= (a'* alpha + sum(b.*beta))/lambda;
-        else
-            alpha(alpha==-inf)=0; # zero values of u (corresponding to zero values in a) generate inf numbers. in ONE-VS-ONE mode this never happens.
-            L= (sum(a.*alpha) + sum(b.*beta))/lambda;
+    # if nargout>1 # user wants lower bounds
+        alpha = log.(u)
+        beta = log.(v)
+        for t in eachindex(beta)
+            beta[t]==-Inf ? beta[t]=0 : beta[t]=beta[t]
         end
-    end
-
-    if nargout>2 && ONE_VS_N && someZeroValues # user wants scalings. We might have to arficially add zeros again in bins of a that were suppressed.
-        uu=u;
-        u=zeros(length(I),size(b)[2]);
-        u(I,:)=uu;
-    end
-
-    #
-    #     if mod(compt,20)==1 || compt==maxIter
-    #         v = b./(K'*u)
-    #         if stoppingCriterion == "distanceRelativeDecrease"
-    #            D = sum(u.*(U*v));
-    #            Criterion = norm(D./Dold-1,p_norm);
-    #            if Criterion < tolerance || isnan(Criterion)
-    #                 break;
-    #            end
-    #            Dold = D;
-    #         elseif stoppingCriterion == "marginalDifference"
-    #            D = sum(u.*(U*v));
-    #            Criterion = norm(sum(abs(v.*(K'*u)-b)),p_norm);
-    #            if Criterion < tolerance || isnan(Criterion)
-    #                 break;
-    #            end
-    #         else
-    #            error("Stopping Criterion not recognized");
-    #         end
-    #     end
+        # [ t==-Inf ? t=0 :  for t in beta]
+        # beta(beta==-inf)=0 # zero values of v (corresponding to zero values in b) generate inf numbers.
+        if ONE_VS_N
+            L= (a'* alpha + sum(b.*beta))/lambda
+        else
+            for t in eachindex(alpha)
+                alpha[t]==-Inf ? alpha[t]=0 : alpha[t]=alpha[t]
+            end
+            # alpha(alpha==-inf)=0 # zero values of u (corresponding to zero values in a) generate inf numbers. in ONE-VS-ONE mode this never happens.
+            L= (sum(a.*alpha) + sum(b.*beta))/lambda
+        end
     # end
+    #
+    # if nargout>2 && ONE_VS_N && someZeroValues # user wants scalings. We might have to arficially add zeros again in bins of a that were suppressed.
+        uu=u
+        u=zeros(length(I),size(b)[2])
+        u(I,:)=uu
+    # end
+
+
     return D, L, u, v
 end

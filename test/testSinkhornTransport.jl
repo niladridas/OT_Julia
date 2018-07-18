@@ -1,9 +1,9 @@
 # Read a,b,K,U,lambda from dat file
-a = readdlm("sinkhorn_nil/matlabreplica/a.dat")
-b = readdlm("sinkhorn_nil/matlabreplica/b.dat")
-K = readdlm("sinkhorn_nil/matlabreplica/K.dat")
-U = readdlm("sinkhorn_nil/matlabreplica/U.dat")
-Lam = readdlm("sinkhorn_nil/matlabreplica/lambda.dat")
-
-using('sinkhorn_nil/matlabreplica/sinkhornTransport.jl')
-D, u, v = sinkhornTransport(a,b,K,U,Lam,"marginalDifference",Inf,.5e-2,5000,0)
+a = readdlm("data/a.dat")
+b = readdlm("data/b.dat")
+K = readdlm("data/K.dat")
+U = readdlm("data/U.dat")
+Lam = readdlm("data/lambda.dat")
+##
+include("../ot/sinkhornTransport.jl")
+D, L, u, v = @time sinkhornTransport(a,b,K,U,Lam,"distanceRelativeDecrease",Inf,.5e-2,50,0)
