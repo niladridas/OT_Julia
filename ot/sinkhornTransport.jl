@@ -45,7 +45,7 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
     # TO-DO:
     #
     ## Checking the type of computation: 1-vs-N points or many pairs
-    a_r, a_c = size(a)
+    a_r1, a_c = size(a)
     b_r, b_c = size(b)
 
 
@@ -66,7 +66,7 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
     if ONE_VS_N # if computing 1-vs-N make sure all components of a are >0. Otherwise we can get rid of some   lines of K to go faster.
         I = find(a) # Changed from Matlab
         someZeroValues = false
-        if length(I)<a_r # need to update some vectors and matrices if a does not have full support
+        if length(I)<a_r1 # need to update some vectors and matrices if a does not have full support
             someZeroValues=true
             K = K[I,:]
             U = U[I,:]
@@ -74,6 +74,8 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
         end
         ainvK= broadcast(/,K,a) # precomputation of this matrix saves a d1 x N Schur product at each iteration.
     end
+    # display(ainvK[1:5,1:5])
+
     a_r = length(a)
     ## Fixed point counter
     compt=0;
@@ -142,6 +144,8 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
     if cmp(stoppingCriterion,"marginalDifference")==0 # if we have been watching marginal differences, we need to compute the vector of distances.
         D=sum(u.*(U*v))
     end
+
+
     alpha = log.(u)
     beta = log.(v)
     [beta[t]==-Inf ? beta[t]=0 : beta[t]=beta[t] for t in eachindex(beta)]
@@ -151,8 +155,11 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
         [alpha[t]==-Inf ? alpha[t]=0 : alpha[t]=alpha[t] for t in eachindex(alpha)]
         L= (sum(broadcast(*,a,alpha)) + sum(broadcast(*,b,beta)))/lambda
     end
-    uu=u
-    u=zeros(length(I),b_c)
-    u(I,:)=uu
+    # display(L)
+    if ONE_VS_N && someZeroValues
+        uu=u
+        u=zeros(a_r1,b_c)
+        u[I,:]=uu
+    end
     return D, L, u, v
 end
