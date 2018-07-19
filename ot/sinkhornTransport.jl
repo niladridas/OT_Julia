@@ -123,7 +123,6 @@ function sinkhornTransport(a,b,K,U,lambda,stoppingCriterion="marginalDifference"
                     break
                 end
                  Dold=D
-
             elseif cmp(stoppingCriterion,"marginalDifference")==0
                 Criterion=norm(sum(abs.(broadcast(*,v,(K'*u))-b)),p_norm)
                 if Criterion<tolerance || isnan(Criterion)

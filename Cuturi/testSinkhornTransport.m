@@ -3,8 +3,8 @@
 
 rand('seed',0);
 % relevant dimensions in this example.
-d1=120; 
-d2=100;
+d1=100; 
+d2=120;
 N=40;
 
 
@@ -35,7 +35,7 @@ a=full(sprand(d1,1,.8)); a=a/sum(a);
 b=full(sprand(d2,N,.8)); b=bsxfun(@rdivide,b,sum(b)); 
 
 disp(['Computing ',num2str(N),' distances from a to b_1, ... b_',num2str(N)]);
-[D,lowerEMD,l,m]=sinkhornTransport(a,b,K,U,lambda,'marginalDifference',inf,.5e-2,50,1); % running with VERBOSE
+[D,lowerEMD,l,m]=sinkhornTransport(a,b,K,U,lambda,'distanceRelativeDecrease',inf,.5e-2,50,1); % running with VERBOSE
 disp('Done computing distances');
 disp(' ');
 % Example of other types of executions, with much smaller tolerances.
@@ -43,16 +43,16 @@ disp(' ');
 % D2=sinkhornTransport(a,b,K,U,lambda,'distanceRelativeDecrease',inf);
 % D3=sinkhornTransport(a,b,K,U,lambda,'distanceRelativeDecrease',1);
 % 
-% figure()
-% cla;
-% disp('Display Vector of Distances and Lower Bounds on EMD');
-% 
-% bar(D,'b');
-% hold on
-% bar(lowerEMD,'r');
-% legend({'Sinkhorn Divergence','Lower bound on EMD'});
-% axis tight; title(['Dual-Sinkhorn Divergence and Lower Bound on EMD for 1-vs-',num2str(N),' pairs'],'FontSize',16); set(gca,'FontSize',16)
-% 
+figure()
+cla;
+disp('Display Vector of Distances and Lower Bounds on EMD');
+
+bar(D,'b');
+hold on
+bar(lowerEMD,'r');
+legend({'Sinkhorn Divergence','Lower bound on EMD'});
+axis tight; title(['Dual-Sinkhorn Divergence and Lower Bound on EMD for 1-vs-',num2str(N),' pairs'],'FontSize',16); set(gca,'FontSize',16)
+
 % % choose a random histogram b_i. 
 % i=round(N*rand());
 % disp(['Display (smoothed) optimal transport from a to b_',num2str(i),', which has been chosen randomly.']);

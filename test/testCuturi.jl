@@ -1,11 +1,11 @@
 # This code is the Julia version of Marco Cuturi's code in Matlab
-using Distributions
+using Distributions, Plots
 include("../ot/sinkhornTransport.jl")
-srand(0) # Setting the seed
+srand(123) # Setting the seed
 # relevant dimensions in this example.
-d1=120;
-d2=100;
-N=40;
+d1=100
+d2=120
+N=40
 # draw randomly a symmetric cost matrix which is zero on the diagonal. this
 # is not a distance matrix, but this suffices to test the script below.
 M=rand(d1,d2)
@@ -23,11 +23,13 @@ U=K.*M
 display(" ")
 display("Example when Computing distances of 1-vs-N histograms")
 # draw and normalize 1 point in the simplex with a few zeros (this is not a uniform sampling)
-a=full(sprand(d1,1,.8)); a=a/sum(a)
+a=full(sprand(d1,1,.8))
+a=a./sum(a)
 # draw and normalize N points in the simplex with a few zeros (not uniform)
-b=full(sprand(d2,N,.8)); b=broadcast(/,b,sum(b))
+b=full(sprand(d2,N,.8))
+b=broadcast(/,b,sum(b,1))
 display("Computing $N distances from a to b_1, ... b_$N")
-D,lowerEMD,l,m=sinkhornTransport(a,b,K,U,lambda,"marginalDifference",Inf,.5e-2,50,1) # running with VERBOSE
+D,lowerEMD,l,m=sinkhornTransport(a,b,K,U,lambda,"distanceRelativeDecrease",Inf,.5e-2,50,1) # running with VERBOSE
 display("Done computing distances")
 display(" ")
 # % Example of other types of executions, with much smaller tolerances.
@@ -37,7 +39,7 @@ display(" ")
 # #
 # figure()
 # cla;
-# disp('Display Vector of Distances and Lower Bounds on EMD');
+display("Display Vector of Distances and Lower Bounds on EMD");
 #
 # bar(D,'b');
 # hold on
